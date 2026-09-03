@@ -64,13 +64,17 @@ MILB_LEVELS = {11: "AAA", 12: "AA", 13: "A+", 14: "A"}
 
 # 阪神ニュース＝Googleニュース検索、デトロイトニュース＝MLB公式RSS
 NEWS_FEEDS = {
+    "MLB全体": {
+        "url": "https://www.mlb.com/feeds/news/rss.xml",         # 全体タブ用
+        "translate": True,
+    },
+    MLB_TEAM_LABEL: {
+        "url": "https://www.mlb.com/tigers/feeds/news/rss.xml",  # デトロイトタブ用（タイガース限定）
+        "translate": True,
+    },
     NPB_TEAM_LABEL: {
         "url": f"https://news.google.com/rss/search?q={quote('阪神タイガース')}&hl=ja&gl=JP&ceid=JP:ja",
         "translate": False,
-    },
-    MLB_TEAM_LABEL: {
-        "url": "https://www.mlb.com/tigers/feeds/news/rss.xml",
-        "translate": True,
     },
 }
 
@@ -285,11 +289,12 @@ def mlb_minor_leaders():
 # ===================================================================
 
 def _read_tables(url):
+    import io
     import pandas as pd
     r = requests.get(url, headers=HEADERS, timeout=20)
     r.raise_for_status()
     r.encoding = r.apparent_encoding
-    return pd.read_html(r.text)
+    return pd.read_html(io.StringIO(r.text))
 
 
 def _pick_hitter_rows(url, top):
@@ -415,7 +420,7 @@ def _safe(fn, label):
         return fn()
     except Exception as e:
         print(f"  [{label} 失敗] {e}", file=sys.stderr)
-        return ("__error__", str(e))
+        return ("__error__", str(e)[:200])
 
 
 def _scores_html(scores):
@@ -560,12 +565,8 @@ def build_html(det, han, news):
       <aside class="news"><h3>ニュース</h3>{_news_html(news.get(NPB_TEAM_LABEL, []))}</aside>
     </div>"""
 
-    # 全体タブ＝両チームのニュースをまとめて
-    all_news = []
-    for team, items in news.items():
-        for it in items:
-            all_news.append({**it, "title": f"[{team}] {it['title']}"})
-    all_html = f'<div class="allnews"><h3>ニュース全体</h3>{_news_html(all_news)}</div>'
+    # 全体タブ＝MLB全体ニュース
+    all_html = f'<div class="allnews"><h3>MLB全体ニュース</h3>{_news_html(news.get("MLB全体", []))}</div>'
 
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
